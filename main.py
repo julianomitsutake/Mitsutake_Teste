@@ -1,358 +1,136 @@
-# # titulo
-# # input do chat
-# # a cada mensagem enviada:
-#     # mostrar a mensagem que o usuario enviou no chat
-#     # enviar essa mensagem para a IA responder
-#     # aparece na tela a resposta da IA
-
-# # streamlit - frontend e backend
-
-# # rodar streamlit run main.py
-# # streamlit run "C:\Users\jm800945\Desktop\Python Autogui - 13-01-2026\Aula 4\main.py"
-# import streamlit as st
-# from openai import OpenAI
-
-# modelo = OpenAI(api_key="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")
-
-# st.write("### ChatBot com IA") # markdown
-
-# # session_state = memoria do streamlit
-# if not "lista_mensagens" in st.session_state:
-#     st.session_state["lista_mensagens"] = []
-
-# # adicionar uma mensagem
-# # st.session_state["lista_mensagens"].append(mensagem)
-
-# # exibir o histórico de mensagens
-# for mensagem in st.session_state["lista_mensagens"]:
-#     role = mensagem["role"]
-#     content = mensagem["content"]
-#     st.chat_message(role).write(content)
-
-# mensagem_usuario = st.chat_input("Escreva sua mensagem aqui")
-
-# if mensagem_usuario:
-#     # user -> ser humano
-#     # assistant -> inteligencia artificial
-#     st.chat_message("user").write(mensagem_usuario)
-#     mensagem = {"role": "user", "content": mensagem_usuario}
-#     st.session_state["lista_mensagens"].append(mensagem)
-
-#     # resposta da IA
-#     resposta_modelo = modelo.chat.completions.create(
-#         messages=st.session_state["lista_mensagens"],
-#         model="gpt-4o"
-#     )
-    
-#     resposta_ia = resposta_modelo.choices[0].message.content
-
-#     # exibir a resposta da IA na tela
-#     st.chat_message("assistant").write(resposta_ia)
-#     mensagem_ia = {"role": "assistant", "content": resposta_ia}
-#     st.session_state["lista_mensagens"].append(mensagem_ia)
-
-
-
-
-
-
-
-
-
-# import io
-# import datetime as dt
-# import pandas as pd
-# import streamlit as st
-
-# st.set_page_config(page_title="Exemplo Streamlit – Formulário e Ações", page_icon="🧩", layout="wide")
-
-# # -------------------------------
-# # Estado inicial
-# # -------------------------------
-# if "envios" not in st.session_state:
-#     st.session_state.envios = []  # lista de dicionários
-# if "ultimo_upload" not in st.session_state:
-#     st.session_state.ultimo_upload = None
-
-# # -------------------------------
-# # Sidebar
-# # -------------------------------
-# with st.sidebar:
-#     st.header("🔧 Configurações")
-#     modo = st.radio("Modo", ["Padrão", "Avançado"], horizontal=True)
-#     tema = st.selectbox("Tema visual", ["Claro", "Escuro", "Auto"])
-#     st.divider()
-#     st.markdown("Demonstração de uma sidebar com controles e descrição.")
-#     st.caption("Dica: clique em 'Limpar formulário' para resetar os campos.")
-
-# # -------------------------------
-# # Título/Descrição
-# # -------------------------------
-# st.title("🧩 Desenvolvido Por Juliano Mitsutake")
-# st.write(
-#     "formulário, validação, upload de arquivo, "
-#     "Sessão. Adapte livremente para seu Trabalho."
-# )
-
-# # -------------------------------
-# # Layout principal
-# # -------------------------------
-# col_form, col_info = st.columns([2, 1], gap="large")
-
-# with col_form:
-#     st.subheader("📋 Formulário de Cadastro")
-
-#     # Usando st.form para agrupar envio
-#     with st.form("form_cadastro", clear_on_submit=False):
-#         col1, col2 = st.columns(2)
-
-#         with col1:
-#             nome = st.text_input("Nome completo*", placeholder="Digite seu nome")
-#             email = st.text_input("E-mail*", placeholder="nome@empresa.com")
-#             data_nasc = st.date_input(
-#                 "Data de nascimento",
-#                 value=None,
-#                 min_value=dt.date(1900,1,1),
-#                 max_value=dt.date.today()
-#             )
-#             qtd = st.number_input("Quantidade", min_value=0, max_value=1000, value=1, step=1)
-
-#         with col2:
-#             cargo = st.selectbox("Cargo", ["", "Analista", "Especialista", "Coordenador", "Gerente", "Diretor"])
-#             habilidades = st.multiselect(
-#                 "Habilidades",
-#                 ["Python", "Streamlit", "Excel", "Power BI", "Automação", "SQL", "Git"],
-#                 default=["Streamlit"] if modo == "Padrão" else []
-#             )
-#             ativo = st.checkbox("Ativo", value=True)
-#             prioridade = st.slider("Prioridade (0-10)", 0, 10, 5)
-
-#         obs = st.text_area("Observações", placeholder="Informações adicionais...")
-
-#         uploaded = st.file_uploader(
-#             "Upload opcional (CSV ou XLSX)",
-#             type=["csv", "xlsx"],
-#             accept_multiple_files=False
-#         )
-
-#         # Botões do formulário
-#         enviar = st.form_submit_button("🚀 Enviar", use_container_width=True)
-#         limpar = st.form_submit_button("🧹 Limpar formulário", use_container_width=True)
-
-#     # Lógica dos botões do formulário
-#     if enviar:
-#         erros = []
-#         if not nome.strip():
-#             erros.append("O campo **Nome completo** é obrigatório.")
-#         if not email.strip():
-#             erros.append("O campo **E-mail** é obrigatório.")
-#         elif "@" not in email or "." not in email.split("@")[-1]:
-#             erros.append("Informe um **E-mail** válido.")
-#         if cargo == "":
-#             erros.append("Selecione um **Cargo**.")
-
-#         if erros:
-#             for e in erros:
-#                 st.error(e)
-#         else:
-#             registro = {
-#                 "nome": nome.strip(),
-#                 "email": email.strip(),
-#                 "data_nasc": str(data_nasc) if data_nasc else None,
-#                 "quantidade": int(qtd),
-#                 "cargo": cargo,
-#                 "habilidades": ", ".join(habilidades),
-#                 "ativo": ativo,
-#                 "prioridade": int(prioridade),
-#                 "obs": obs.strip(),
-#                 "data_envio": dt.datetime.now().isoformat(timespec="seconds"),
-#             }
-#             st.session_state.envios.append(registro)
-#             st.success("Dados enviados com sucesso! ✅")
-
-#             if uploaded is not None:
-#                 try:
-#                     if uploaded.name.lower().endswith(".csv"):
-#                         df_up = pd.read_csv(uploaded)
-#                     else:
-#                         df_up = pd.read_excel(uploaded, engine="openpyxl")
-#                     st.session_state.ultimo_upload = df_up
-#                     st.info(f"Arquivo **{uploaded.name}** processado ({df_up.shape[0]} linhas x {df_up.shape[1]} colunas).")
-#                 except Exception as ex:
-#                     st.warning(f"Não foi possível ler o arquivo: {ex}")
-
-#     if limpar:
-#         for k in list(st.session_state.keys()):
-#             # mantenha histórico e último upload; limpe só campos derivados
-#             if k not in ("envios", "ultimo_upload"):
-#                 st.session_state[k] = st.session_state[k]
-#         st.experimental_rerun()
-
-# with col_info:
-#     st.subheader("ℹ️ Info")
-#     st.write("**Total de envios:**", len(st.session_state.envios))
-#     if st.session_state.envios:
-#         df_envios = pd.DataFrame(st.session_state.envios)
-#         st.dataframe(df_envios, use_container_width=True, height=220)
-
-#         # Exportar CSV em memória
-#         csv_buf = io.StringIO()
-#         df_envios.to_csv(csv_buf, index=False)
-#         st.download_button(
-#             "💾 Baixar envios (CSV)",
-#             data=csv_buf.getvalue().encode("utf-8"),
-#             file_name="envios.csv",
-#             mime="text/csv",
-#             use_container_width=True
-#         )
-
-#     st.divider()
-#     st.subheader("📎 Último upload")
-#     if st.session_state.ultimo_upload is not None:
-#         st.dataframe(st.session_state.ultimo_upload, use_container_width=True, height=220)
-#     else:
-#         st.caption("Nenhum arquivo carregado ainda.")
-
-# # -------------------------------
-# # Ações fora do formulário
-# # -------------------------------
-# st.divider()
-# st.subheader("⚙️ Ações rápidas")
-
-# col_a, col_b, col_c = st.columns(3)
-# with col_a:
-#     if st.button("🔄 Processar último upload", use_container_width=True, type="secondary"):
-#         if st.session_state.ultimo_upload is None:
-#             st.warning("Nenhum arquivo foi carregado.")
-#         else:
-#             df = st.session_state.ultimo_upload.copy()
-#             # Exemplo de transformação simples
-#             df.columns = [c.strip().upper() for c in df.columns]
-#             st.session_state.ultimo_upload = df
-#             st.success("Último upload processado: colunas normalizadas (maiúsculas).")
-
-# with col_b:
-#     if st.button("🗑️ Limpar histórico de envios", use_container_width=True):
-#         st.session_state.envios = []
-#         st.success("Histórico limpo.")
-
-# with col_c:
-#     if st.button("📤 Exportar tudo (CSV)", use_container_width=True):
-#         df_all = pd.DataFrame(st.session_state.envios) if st.session_state.envios else pd.DataFrame()
-#         if df_all.empty:
-#             st.info("Não há envios para exportar.")
-#         else:
-#             buf = io.StringIO()
-#             df_all.to_csv(buf, index=False)
-#             st.download_button(
-#                 "⬇️ Clique para baixar agora",
-#                 data=buf.getvalue().encode("utf-8"),
-#                 file_name=f"export_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-#                 mime="text/csv",
-#                 key="dl_export_inline"
-#             )
-
-# # Rodapé
-# st.markdown("---")
-# st.caption("EAdapte para seus fluxos de trabalho.")
-
-
-
-
-
-
-
-
 
 import io
 import datetime as dt
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Exemplo Streamlit – Formulário e Ações", page_icon="🧩", layout="wide")
+# =====================================================
+# CONFIGURAÇÃO DA PÁGINA (APENAS UMA VEZ)
+# =====================================================
+st.set_page_config(
+    page_title="Exemplo Streamlit – Formulário e Ações",
+    page_icon="🧩",
+    layout="wide"
+)
 
-# -------------------------------
-# Estado inicial
-# -------------------------------
+# =====================================================
+# LOGIN SIMPLES (BLOQUEIA TODO O APP)
+# =====================================================
+USUARIO_CORRETO = "Admin"
+SENHA_CORRETA = "Admin"
+
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+
+if not st.session_state.logado:
+    st.title("🔐 Acesso restrito")
+
+    with st.form("login_form"):
+        usuario = st.text_input("Usuário")
+        senha = st.text_input("Senha", type="password")
+        entrar = st.form_submit_button("Entrar")
+
+    if entrar:
+        if usuario == USUARIO_CORRETO and senha == SENHA_CORRETA:
+            st.session_state.logado = True
+            st.success("Login realizado com sucesso ✅")
+            st.rerun()
+        else:
+            st.error("Usuário ou senha inválidos ❌")
+
+    # ⛔ Impede qualquer código abaixo de rodar
+    st.stop()
+
+# =====================================================
+# ESTADO INICIAL
+# =====================================================
 if "envios" not in st.session_state:
-    st.session_state.envios = []  # lista de dicionários
+    st.session_state.envios = []
 if "ultimo_upload" not in st.session_state:
     st.session_state.ultimo_upload = None
 
-# -------------------------------
-# Sidebar
-# -------------------------------
+# =====================================================
+# SIDEBAR
+# =====================================================
 with st.sidebar:
     st.header("🔧 Configurações")
+
+    if st.button("🔓 Logout"):
+        st.session_state.logado = False
+        st.rerun()
+
     modo = st.radio("Modo", ["Padrão", "Avançado"], horizontal=True)
     tema = st.selectbox("Tema visual", ["Claro", "Escuro", "Auto"])
+
     st.divider()
-    st.markdown("Demonstração de uma sidebar com controles e descrição.")
     st.caption("Dica: clique em 'Limpar formulário' para resetar os campos.")
 
-# -------------------------------
-# Título/Descrição
-# -------------------------------
-st.title("🧩 Desenvolvido Por Juliano Mitsutake")
+# =====================================================
+# TÍTULO / DESCRIÇÃO
+# =====================================================
+st.title("🧩 Desenvolvido por Juliano Mitsutake")
 st.write(
-    "formulário, validação, upload de arquivo, "
-    "Sessão. Adapte livremente para seu Trabalho."
+    "Formulário com validação, upload de arquivos, controle de sessão "
+    "e ações rápidas. Adapte livremente para seu trabalho."
 )
 
-# -------------------------------
-# Layout principal
-# -------------------------------
+# =====================================================
+# LAYOUT PRINCIPAL
+# =====================================================
 col_form, col_info = st.columns([2, 1], gap="large")
 
+# =====================================================
+# FORMULÁRIO
+# =====================================================
 with col_form:
     st.subheader("📋 Formulário de Cadastro")
 
-    # Usando st.form para agrupar envio
-    with st.form("form_cadastro", clear_on_submit=False):
+    with st.form("form_cadastro"):
         col1, col2 = st.columns(2)
 
         with col1:
-            nome = st.text_input("Nome completo*", placeholder="Digite seu nome")
-            email = st.text_input("E-mail*", placeholder="nome@empresa.com")
+            nome = st.text_input("Nome completo*")
+            email = st.text_input("E-mail*")
             data_nasc = st.date_input(
                 "Data de nascimento",
                 value=None,
-                min_value=dt.date(1900,1,1),
+                min_value=dt.date(1900, 1, 1),
                 max_value=dt.date.today()
             )
-            qtd = st.number_input("Quantidade", min_value=0, max_value=1000, value=1, step=1)
+            qtd = st.number_input("Quantidade", min_value=0, max_value=1000, value=1)
 
         with col2:
-            cargo = st.selectbox("Cargo", ["", "Analista", "Especialista", "Coordenador", "Gerente", "Diretor"])
+            cargo = st.selectbox(
+                "Cargo",
+                ["", "Analista", "Especialista", "Coordenador", "Gerente", "Diretor"]
+            )
             habilidades = st.multiselect(
                 "Habilidades",
-                ["Python", "Streamlit", "Excel", "Power BI", "Automação", "SQL", "Git"],
+                ["Python", "Streamlit", "Excel", "Power BI",
+                 "Automação", "SQL", "Git"],
                 default=["Streamlit"] if modo == "Padrão" else []
             )
             ativo = st.checkbox("Ativo", value=True)
             prioridade = st.slider("Prioridade (0-10)", 0, 10, 5)
 
-        obs = st.text_area("Observações", placeholder="Informações adicionais...")
+        obs = st.text_area("Observações")
 
         uploaded = st.file_uploader(
             "Upload opcional (CSV ou XLSX)",
-            type=["csv", "xlsx"],
-            accept_multiple_files=False
+            type=["csv", "xlsx"]
         )
 
-        # Botões do formulário
-        enviar = st.form_submit_button("🚀 Enviar", use_container_width=True)
-        limpar = st.form_submit_button("🧹 Limpar formulário", use_container_width=True)
+        enviar = st.form_submit_button("🚀 Enviar")
+        limpar = st.form_submit_button("🧹 Limpar formulário")
 
-    # Lógica dos botões do formulário
     if enviar:
         erros = []
         if not nome.strip():
             erros.append("O campo **Nome completo** é obrigatório.")
         if not email.strip():
             erros.append("O campo **E-mail** é obrigatório.")
-        elif "@" not in email or "." not in email.split("@")[-1]:
-            erros.append("Informe um **E-mail** válido.")
+        elif "@" not in email:
+            erros.append("Informe um **e-mail válido**.")
         if cargo == "":
             erros.append("Selecione um **Cargo**.")
 
@@ -361,54 +139,53 @@ with col_form:
                 st.error(e)
         else:
             registro = {
-                "nome": nome.strip(),
-                "email": email.strip(),
+                "nome": nome,
+                "email": email,
                 "data_nasc": str(data_nasc) if data_nasc else None,
                 "quantidade": int(qtd),
                 "cargo": cargo,
                 "habilidades": ", ".join(habilidades),
                 "ativo": ativo,
                 "prioridade": int(prioridade),
-                "obs": obs.strip(),
+                "obs": obs,
                 "data_envio": dt.datetime.now().isoformat(timespec="seconds"),
             }
             st.session_state.envios.append(registro)
-            st.success("Dados enviados com sucesso! ✅")
+            st.success("Dados enviados com sucesso ✅")
 
-            if uploaded is not None:
+            if uploaded:
                 try:
                     if uploaded.name.lower().endswith(".csv"):
-                        df_up = pd.read_csv(uploaded)
+                        df = pd.read_csv(uploaded)
                     else:
-                        df_up = pd.read_excel(uploaded, engine="openpyxl")
-                    st.session_state.ultimo_upload = df_up
-                    st.info(f"Arquivo **{uploaded.name}** processado ({df_up.shape[0]} linhas x {df_up.shape[1]} colunas).")
-                except Exception as ex:
-                    st.warning(f"Não foi possível ler o arquivo: {ex}")
+                        df = pd.read_excel(uploaded, engine="openpyxl")
+                    st.session_state.ultimo_upload = df
+                    st.info(f"Arquivo **{uploaded.name}** carregado com sucesso.")
+                except Exception as e:
+                    st.error(f"Erro ao ler arquivo: {e}")
 
     if limpar:
-        for k in list(st.session_state.keys()):
-            # mantenha histórico e último upload; limpe só campos derivados
-            if k not in ("envios", "ultimo_upload"):
-                st.session_state[k] = st.session_state[k]
-        st.experimental_rerun()
+        st.rerun()
 
+# =====================================================
+# PAINEL DE INFORMAÇÕES
+# =====================================================
 with col_info:
-    st.subheader("ℹ️ Info")
-    st.write("**Total de envios:**", len(st.session_state.envios))
+    st.subheader("ℹ️ Informações")
+    st.write("Total de envios:", len(st.session_state.envios))
+
     if st.session_state.envios:
         df_envios = pd.DataFrame(st.session_state.envios)
-        st.dataframe(df_envios, use_container_width=True, height=220)
+        st.dataframe(df_envios, use_container_width=True, height=250)
 
-        # Exportar CSV em memória
         csv_buf = io.StringIO()
         df_envios.to_csv(csv_buf, index=False)
+
         st.download_button(
             "💾 Baixar envios (CSV)",
             data=csv_buf.getvalue().encode("utf-8"),
             file_name="envios.csv",
-            mime="text/csv",
-            use_container_width=True
+            mime="text/csv"
         )
 
     st.divider()
@@ -418,45 +195,46 @@ with col_info:
     else:
         st.caption("Nenhum arquivo carregado ainda.")
 
-# -------------------------------
-# Ações fora do formulário
-# -------------------------------
+# =====================================================
+# AÇÕES RÁPIDAS
+# =====================================================
 st.divider()
 st.subheader("⚙️ Ações rápidas")
 
-col_a, col_b, col_c = st.columns(3)
-with col_a:
-    if st.button("🔄 Processar último upload", use_container_width=True, type="secondary"):
+c1, c2, c3 = st.columns(3)
+
+with c1:
+    if st.button("🔄 Processar último upload"):
         if st.session_state.ultimo_upload is None:
             st.warning("Nenhum arquivo foi carregado.")
         else:
             df = st.session_state.ultimo_upload.copy()
-            # Exemplo de transformação simples
             df.columns = [c.strip().upper() for c in df.columns]
             st.session_state.ultimo_upload = df
-            st.success("Último upload processado: colunas normalizadas (maiúsculas).")
+            st.success("Colunas normalizadas com sucesso.")
 
-with col_b:
-    if st.button("🗑️ Limpar histórico de envios", use_container_width=True):
+with c2:
+    if st.button("🗑️ Limpar histórico"):
         st.session_state.envios = []
-        st.success("Histórico limpo.")
+        st.success("Histórico de envios limpo.")
 
-with col_c:
-    if st.button("📤 Exportar tudo (CSV)", use_container_width=True):
-        df_all = pd.DataFrame(st.session_state.envios) if st.session_state.envios else pd.DataFrame()
-        if df_all.empty:
-            st.info("Não há envios para exportar.")
+with c3:
+    if st.button("📤 Exportar tudo"):
+        if not st.session_state.envios:
+            st.info("Não há dados para exportar.")
         else:
+            df_all = pd.DataFrame(st.session_state.envios)
             buf = io.StringIO()
             df_all.to_csv(buf, index=False)
             st.download_button(
-                "⬇️ Clique para baixar agora",
+                "⬇️ Baixar agora",
                 data=buf.getvalue().encode("utf-8"),
-                file_name=f"export_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                key="dl_export_inline"
+                file_name=f"export_{dt.datetime.now():%Y%m%d_%H%M%S}.csv",
+                mime="text/csv"
             )
 
-# Rodapé
+# =====================================================
+# RODAPÉ
+# =====================================================
 st.markdown("---")
-st.caption("EAdapte para seus fluxos de trabalho.")
+st.caption("Aplicação Streamlit protegida por login simples.")
