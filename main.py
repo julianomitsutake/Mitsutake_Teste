@@ -2,10 +2,10 @@
 import os
 import io
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Dict
 
 import pandas as pd
-import pyodbc
+import requests
 import streamlit as st
 
 # =========================
@@ -34,28 +34,59 @@ section[data-testid="stSidebar"] { position: relative; }
 """, unsafe_allow_html=True)
 
 # =========================
-# CONSTANTES / CAMINHO DO BANCO
+# CONFIG DA API (via Streamlit Secrets)
 # =========================
-ACCESS_DB_PATH = r"C:\Users\jm800945\Desktop\00 - CONSULTORIAS\2025\09 - Souza e Neto\01 - Dados\SN_COMPRAS.1.14.accdb"
-TABLE_NAME = "SN_SUGESTAO_VENDEDOR"
+# Streamlit Cloud -> Settings -> Secrets
+# [api]
+# base_url = "https://SUA-URL-PUBLICA-DA-API"  # ex.: https://xxxx-xxxx.ngrok.app
+# token    = "API_TOKEN_ACCESS_123456789"
+# timeout  = 10
+
+_api_conf = st.secrets.get("api", {})
+API_BASE = (_api_conf.get("base_url") or "").rstrip("/")
+API_TOKEN = _api_conf.get("token")
+API_TIMEOUT = int(_api_conf.get("timeout", 10))
+
+def _require_api_config():
+    if not API_BASE or not API_TOKEN:
+        st.error(
+            "⚠️ Configuração da API ausente.\n\n"
+            "Defina `base_url` e `token` em **Settings → Secrets**:\n\n"
+            "```toml\n[api]\nbase_url = \"https://SUA-URL-PUBLICA-DA-API\"\ntoken = \"API_TOKEN_ACCESS_123456789\"\n```"
+        )
+        st.stop()
+
+_require_api_config()
+
+def call_api(method: str, path: str, **kwargs):
+    """Chama a API com cabeçalho X-API-Key e trata erros comuns."""
+    url = f"{API_BASE}{path}"
+    headers = kwargs.pop("headers", {})
+    headers["X-API-Key"] = API_TOKEN
+    try:
+        r = requests.request(method=method, url=url, headers=headers, timeout=API_TIMEOUT, **kwargs)
+        r.raise_for_status()
+        if r.content and "application/json" in r.headers.get("Content-Type", ""):
+            return r.json()
+        return None
+    except requests.HTTPError as ex:
+        if r.status_code == 401:
+            raise RuntimeError("Não autorizado (401). Verifique o token em Settings → Secrets.") from ex
+        raise RuntimeError(f"Falha HTTP {r.status_code} em {path}: {r.text}") from ex
+    except requests.RequestException as ex:
+        raise RuntimeError(f"Falha ao chamar API {path}: {ex}") from ex
+
+@st.cache_data(ttl=15)
+def api_status() -> bool:
+    try:
+        data = call_api("GET", "/health")
+        return bool(data and data.get("ok"))
+    except Exception:
+        return False
 
 # =========================
-# FUNÇÕES DE BANCO DE DADOS
+# FUNÇÕES DE "BANCO" (agora via API)
 # =========================
-def get_connection(read_only: bool = False):
-    """
-    Abre conexão ODBC com o arquivo .accdb.
-    - read_only=True: minimiza locks durante SELECTs.
-    Requer o driver: Microsoft Access Driver (*.mdb, *.accdb).
-    """
-    conn_str = (
-        r"Driver={Microsoft Access Driver (*.mdb, *.accdb)};"
-        rf"DBQ={ACCESS_DB_PATH};"
-        r"Exclusive=No;"
-        + (r"ReadOnly=Yes;" if read_only else r"ReadOnly=No;")
-    )
-    return pyodbc.connect(conn_str, autocommit=False)
-
 def insert_sugestao(
     referencia: str,
     quantidade: int,
@@ -66,142 +97,78 @@ def insert_sugestao(
     descricao_codigo: Optional[str],
     vendedor: Optional[str]
 ):
-    """
-    Insere um registro na tabela SN_SUGESTAO_VENDEDOR.
-    Campos: REFERENCIA, QUANTIDADE, MARCA, TIPO_SUGESTAO, COMENTARIO_VENDEDOR, CODIGO, DESCRICAO_CODIGO, VENDEDOR
-    """
-    sql = f"""
-        INSERT INTO {TABLE_NAME}
-        ([REFERENCIA], [QUANTIDADE], [MARCA], [TIPO_SUGESTAO], [COMENTARIO_VENDEDOR], [CODIGO], [DESCRICAO_CODIGO], [VENDEDOR])
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """
-    with get_connection(read_only=False) as conn:
-        cur = conn.cursor()
-        cur.execute(sql, (referencia, quantidade, marca, tipo, comentario, codigo, descricao_codigo, vendedor))
-        conn.commit()
+    payload = {
+        "referencia": referencia,
+        "quantidade": int(quantidade),
+        "marca": marca,
+        "tipo": tipo,
+        "comentario": comentario,
+        "codigo": codigo,
+        "descricao": descricao_codigo,
+        "vendedor": vendedor
+    }
+    call_api("POST", "/sugestao", json=payload)
 
 def authenticate_user(login: str, senha: str) -> Tuple[bool, Optional[str]]:
-    """
-    Autentica usuário consultando a tabela CADASTRO_USUARIO por LOGIN
-    e comparando a senha (colunas aceitas: SENHA, PASSWORD, SENHA_USUARIO).
-    Retorna: (autenticado, nome_exibicao_ou_login)
-    """
-    if not login:
+    payload = {"login": login, "senha": senha}
+    data = call_api("POST", "/login", json=payload)
+    if not data:
         return False, None
-    sql = "SELECT * FROM CADASTRO_USUARIO WHERE LOGIN = ?"
-    with get_connection(read_only=True) as conn:
-        cur = conn.cursor()
-        cur.execute(sql, (login,))
-        row = cur.fetchone()
-        if not row:
-            return False, None
-        cols = [d[0].upper() for d in cur.description]
-        data = {k: v for k, v in zip(cols, row)}
-        # nome de exibição (se existir)
-        nome = data.get("NOME") or data.get("NOME_USUARIO") or login
-        # senha em uma das colunas possíveis
-        senha_real = None
-        for key in ("SENHA", "PASSWORD", "SENHA_USUARIO"):
-            if key in data:
-                senha_real = data[key]
-                break
-        if senha_real is None:
-            return False, None
-        return (str(senha_real) == str(senha)), nome
+    return (bool(data.get("ok")), data.get("nome"))
 
 @st.cache_data(ttl=30)
-def carregar_sugestoes():
-    """
-    Carrega os registros da tabela com retry/backoff e conexão read-only.
-    Inclui colunas adicionais para exibição na CONSULTA.
-    """
-    sql = f"""
-        SELECT
-            [REFERENCIA],
-            [QUANTIDADE],
-            [MARCA],
-            [TIPO_SUGESTAO],
-            [COMENTARIO_VENDEDOR],
-            [VENDEDOR],
-            [ACAO_COMPRADOR],
-            [COMENTARIO_COMPRADOR],
-            [ORDEM_COMPRA],
-            [CODIGO],
-            [DESCRICAO_CODIGO],
-            [DATA_LANCAMENTO]
-        FROM {TABLE_NAME}
-    """
-    tentativas = 5
-    espera = 0.5
-    for i in range(tentativas):
-        try:
-            with get_connection(read_only=True) as conn:
-                cur = conn.cursor()
-                cur.execute(sql)
-                rows = cur.fetchall()
-                cols = [desc[0] for desc in cur.description]
-            df = pd.DataFrame.from_records([tuple(r) for r in rows], columns=cols)
+def carregar_sugestoes() -> pd.DataFrame:
+    data = call_api("GET", "/sugestoes")
+    if not data:
+        return pd.DataFrame()
+    df = pd.DataFrame(data)
 
-            # Renomear colunas para exibição amigável
-            df = df.rename(columns={
-                "REFERENCIA": "Referência",
-                "QUANTIDADE": "Quantidade",
-                "MARCA": "Marca",
-                "TIPO_SUGESTAO": "Tipo Sugestão",
-                "COMENTARIO_VENDEDOR": "Comentário Vendedor",
-                "VENDEDOR": "Vendedor",
-                "ACAO_COMPRADOR": "Ação Comprador",
-                "COMENTARIO_COMPRADOR": "Comentário Comprador",
-                "ORDEM_COMPRA": "Ordem Compra",
-                "CODIGO": "Código",
-                "DESCRICAO_CODIGO": "Descrição Código",
-                "DATA_LANCAMENTO": "Data Lançamento"
-            })
+    # Renomear colunas para exibição amigável
+    rename_map = {
+        "REFERENCIA": "Referência",
+        "QUANTIDADE": "Quantidade",
+        "MARCA": "Marca",
+        "TIPO_SUGESTAO": "Tipo Sugestão",
+        "COMENTARIO_VENDEDOR": "Comentário Vendedor",
+        "VENDEDOR": "Vendedor",
+        "ACAO_COMPRADOR": "Ação Comprador",
+        "COMENTARIO_COMPRADOR": "Comentário Comprador",
+        "ORDEM_COMPRA": "Ordem Compra",
+        "CODIGO": "Código",
+        "DESCRICAO_CODIGO": "Descrição Código",
+        "DATA_LANCAMENTO": "Data Lançamento"
+    }
+    df = df.rename(columns=rename_map)
 
-            # Data/Hora pt-BR completa
-            if "Data Lançamento" in df.columns:
-                data_dt = pd.to_datetime(df["Data Lançamento"], errors="coerce", dayfirst=True, infer_datetime_format=True)
-                df["Data Lançamento"] = data_dt.dt.strftime("%d/%m/%Y %H:%M:%S").fillna("")
+    # Data/Hora pt-BR completa
+    if "Data Lançamento" in df.columns:
+        data_dt = pd.to_datetime(df["Data Lançamento"], errors="coerce", dayfirst=True, infer_datetime_format=True)
+        df["Data Lançamento"] = data_dt.dt.strftime("%d/%m/%Y %H:%M:%S").fillna("")
 
-            # Código sem separadores
-            if "Código" in df.columns:
-                df["Código"] = df["Código"].apply(lambda x: "" if pd.isna(x) else str(x).replace(".", "").replace(",", "").strip())
+    # Código sem separadores
+    if "Código" in df.columns:
+        df["Código"] = df["Código"].apply(lambda x: "" if pd.isna(x) else str(x).replace(".", "").replace(",", "").strip())
 
-            return df
-        except pyodbc.Error as ex:
-            msg = str(ex)
-            if "-1302" in msg or "exclusivo" in msg.lower():
-                if i < tentativas - 1:
-                    time.sleep(espera); espera *= 2; continue
-            raise
+    return df
 
-def carregar_itens_por_referencia(referencia: str):
-    """
-    Retorna lista de tuplas [(codigo, descricao)] de SN_QUERY_REFERENCIA para a referência informada.
-    """
+def carregar_itens_por_referencia(referencia: str) -> List[tuple]:
     if not referencia or not referencia.strip():
         return []
-    sql = """
-        SELECT CODIGO, DESCRICAO
-        FROM SN_QUERY_REFERENCIA
-        WHERE REFERENCIA = ?
-    """
-    with get_connection(read_only=True) as conn:
-        cur = conn.cursor()
-        cur.execute(sql, (referencia.strip(),))
-        rows = cur.fetchall()
-        itens = []
-        for r in rows:
-            cod = "" if r[0] is None else str(r[0]).replace(".", "").replace(",", "").strip()
-            desc = "" if r[1] is None else str(r[1]).strip()
-            itens.append((cod, desc))
-        # remove duplicados preservando ordem
-        seen = set()
-        dedup = []
-        for t in itens:
-            if t not in seen:
-                seen.add(t); dedup.append(t)
-        return dedup
+    items = call_api("GET", f"/itens/{referencia.strip()}")
+    if not items:
+        return []
+    out: List[tuple] = []
+    for it in items:
+        cod = "" if it.get("codigo") is None else str(it.get("codigo"))
+        desc = "" if it.get("descricao") is None else str(it.get("descricao"))
+        out.append((cod, desc))
+    # remove duplicados preservando ordem
+    seen = set()
+    dedup = []
+    for t in out:
+        if t not in seen:
+            seen.add(t); dedup.append(t)
+    return dedup
 
 # =========================
 # ESTADO INICIAL, CALLBACKS E LIMPEZA
@@ -302,6 +269,13 @@ apply_pending_clear()
 # =========================
 if not st.session_state.get("authenticated", False):
     st.title("🔐 Acesso ao Sistema")
+
+    # Status da API
+    ok = api_status()
+    st.caption(f"Status da API: {'🟢 Online' if ok else '🔴 Offline'}")
+    if not ok:
+        st.error("A API do Access está offline. Verifique o serviço no Windows (Uvicorn/ngrok/Cloudflare Tunnel).")
+
     with st.form("form_login", clear_on_submit=False):
         st.text_input("Usuário", key="login_user")
         st.text_input("Senha", type="password", key="login_pass")
@@ -322,12 +296,12 @@ if not st.session_state.get("authenticated", False):
                     st.rerun()
                 else:
                     st.error("Usuário ou senha inválidos.")
-            except pyodbc.Error as ex:
-                st.error("Erro ao autenticar no banco Access.")
+            except Exception as ex:
+                st.error("Erro ao autenticar (API).")
                 st.exception(ex)
     st.stop()
 
-# >>> Exibe a mensagem de sucesso pós-salvar por 5 segundos (depois limpa) <<<
+# >>> Exibe a mensagem de sucesso pós-salvar por 5 segundos (depois limpa)
 if st.session_state.get("_pending_success", False):
     _msg = st.empty()
     _msg.success("✅ Sugestão salva com sucesso!")
@@ -360,10 +334,6 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# Aviso banco
-if not os.path.exists(ACCESS_DB_PATH):
-    st.sidebar.error("⚠️ Arquivo do banco não encontrado:\n" + ACCESS_DB_PATH)
 
 # =========================
 # PÁGINA: SUGESTÃO DO VENDEDOR
@@ -420,7 +390,7 @@ if pagina == "SUGESTÃO DO VENDEDOR":
             st.text_input("Marca *", key="marca")
 
         with col2:
-            # Tipo Sugestão select vazio
+            # Tipo Sugestão
             opcoes_tipo = ["VENDA_CASADA", "VENDA_PERDIDA"]
             st.selectbox(
                 "Tipo Sugestão *",
@@ -430,7 +400,7 @@ if pagina == "SUGESTÃO DO VENDEDOR":
                 key="tipo_sugestao"
             )
 
-            # Vendedor (apenas leitura) - será gravado automaticamente
+            # Vendedor (apenas leitura)
             st.text_input("Vendedor (automático)", value=st.session_state.get("usuario", ""), disabled=True)
 
             st.text_area("Comentário", height=140, key="comentario")
@@ -455,12 +425,11 @@ if pagina == "SUGESTÃO DO VENDEDOR":
         codigo_item = st.session_state.get("codigo_item", None)
         descricao_item = st.session_state.get("descricao_item", None)
         itens_ref = st.session_state.get("itens_ref", [])
-        vendedor = st.session_state.get("usuario", "")  # <<<<< CAPTURA O USUÁRIO LOGADO
+        vendedor = st.session_state.get("usuario", "")
 
         erros = []
         if not referencia:
             erros.append("Informe a **Referência**.")
-        # Código/Descrição do item são obrigatórios:
         if not itens_ref:
             erros.append("Nenhum **item** foi encontrado para esta **Referência**. Revise a referência.")
         if itens_ref and st.session_state.get("item_escolhido") is None:
@@ -483,16 +452,15 @@ if pagina == "SUGESTÃO DO VENDEDOR":
                     marca=marca,
                     tipo=tipo_sugestao,
                     comentario=comentario,
-                    codigo=codigo_item,               # -> campo CODIGO
-                    descricao_codigo=descricao_item,  # -> campo DESCRICAO_CODIGO
-                    vendedor=vendedor                 # -> campo VENDEDOR (NOVO)
+                    codigo=codigo_item,
+                    descricao_codigo=descricao_item,
+                    vendedor=vendedor
                 )
-                # Mensagem por 5s + limpeza + rerun
                 st.session_state["_pending_success"] = True
                 st.session_state["_clear_after_save"] = True
                 st.rerun()
-            except pyodbc.Error as ex:
-                st.error("Erro ao salvar no banco Access.")
+            except Exception as ex:
+                st.error("Erro ao salvar (API).")
                 st.exception(ex)
 
 # =========================
@@ -599,7 +567,6 @@ else:
         st.dataframe(df_exibir, use_container_width=True, hide_index=True)
         st.caption(f"Total de registros: {len(df_exibir)}")
 
-    except pyodbc.Error as ex:
-        st.error("Erro ao consultar o banco Access.")
+    except Exception as ex:
+        st.error("Erro ao consultar (API).")
         st.exception(ex)
-
