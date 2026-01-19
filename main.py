@@ -602,3 +602,4 @@ else:
     except pyodbc.Error as ex:
         st.error("Erro ao consultar o banco Access.")
         st.exception(ex)
+
