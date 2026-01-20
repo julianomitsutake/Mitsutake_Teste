@@ -1,4 +1,3 @@
-
 import os
 import io
 import time
@@ -12,7 +11,7 @@ import streamlit as st
 # CONFIGURAÇÕES DO APLICATIVO
 # =========================
 st.set_page_config(
-    page_title="Sugestão do Vendedor",
+    page_title="SOUZA E NETO AUTO PEÇAS E MECÂNICA - Sugestão do Vendedor",
     page_icon="🧾",
     layout="wide"
 )
@@ -312,10 +311,10 @@ if st.session_state.get("_pending_success", False):
 # =========================
 # SIDEBAR / MENU
 # =========================
-st.sidebar.title("SOUZA  E NETO")
+st.sidebar.title("SOUZA E NETO")
 st.sidebar.header("Menu Principal")
 pagina = st.sidebar.radio(
-    "Navegação",
+    " ",
     options=["SUGESTÃO DO VENDEDOR", "CONSULTA SUGESTÃO"],
     index=0
 )
