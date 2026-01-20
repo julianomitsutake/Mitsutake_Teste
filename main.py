@@ -9,9 +9,9 @@ import streamlit as st
 
 # =========================
 # CONFIGURAÇÕES DO APLICATIVO
-# =========================
+# ========================= page_title="SOUZA E NETO AUTO PEÇAS E MECÂNICA - Sugestão do Vendedor",
 st.set_page_config(
-    page_title="SOUZA E NETO AUTO PEÇAS E MECÂNICA - Sugestão do Vendedor",
+    page_title="Sugestão do Vendedor",
     page_icon="🧾",
     layout="wide"
 )
@@ -569,3 +569,4 @@ else:
     except Exception as ex:
         st.error("Erro ao consultar (API).")
         st.exception(ex)
+
